@@ -1,0 +1,7 @@
+.handbook
+node_modules
+/build
+/.svelte-kit
+vite.config.js.timestamp-*
+target/
+.DS_Store
