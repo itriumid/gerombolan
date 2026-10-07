@@ -30,6 +30,8 @@ const STEP_INS_PER_FRAME = 48;
  */
 const FIGHT_SECONDS = 2.5;
 const FIGHT_PACE = { slowest: 8, fastest: 30 } as const;
+/** How far ahead of the leader a fight's sweep may run, in seconds at its pace: about a lunge. */
+const LUNGE_LEAD_SECONDS = 0.5;
 /**
  * How far short of a raider in their way the leader stops, in meters: out of reach of the raiders'
  * raised arms, so the leader never looks to be standing among them.
@@ -380,7 +382,9 @@ export class Game {
 			// Up to the front-most rank still standing anywhere across the road, never past it: the
 			// leader only steps forward once the whole rank in front of them is down.
 			const pressed = line === undefined ? undefined : -line - STOP_SHORT;
-			if (fight.to === 0) target = Number.isNaN(fight.leaderDown) && pressed !== undefined ? pressed : this.shownMeters;
+			// A losing crowd keeps pressing in until its leader actually goes down.
+			const leaderStanding = Number.isNaN(fight.leaderDown) || time < fight.leaderDown;
+			if (fight.to === 0) target = leaderStanding && pressed !== undefined ? pressed : this.shownMeters;
 			else if (pressed !== undefined) target = Math.min(runMeters, pressed);
 		}
 		// Before, during or after a fight: the leader never moves past a raider on their feet in
@@ -446,7 +450,12 @@ export class Game {
 		// Raiders near the leader, or that the fight has swept back to: the nearest runner steps in.
 		// The sweep moves at the fight's pace, so the runners set off for the next ranks before the
 		// leader gets there, and the fight never waits on its slowest lunge.
-		const swept = this.raiders.front - STEP_IN_METERS + STOP_SHORT - fight.pace * (time - fight.start);
+		// The sweep never runs more than a lunge's worth ahead of the leader, so runners don't sprint
+		// deep into a big raid, falling far from everyone else.
+		const swept = Math.max(
+			this.raiders.front - STEP_IN_METERS + STOP_SHORT - fight.pace * (time - fight.start),
+			leaderZ - STEP_IN_METERS - fight.pace * LUNGE_LEAD_SECONDS
+		);
 		let steppedIn = 0;
 		for (let index = 0; index < this.raiders.drawnCount && steppedIn < STEP_INS_PER_FRAME; index++) {
 			if (!this.raiders.isStanding(index)) continue;

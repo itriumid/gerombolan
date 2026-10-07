@@ -33,6 +33,8 @@ const FOLLOW = 5;
 const CENTER_FOLLOW = 3;
 /** How fast a runner sprints at a raider beside it, in meters a second. */
 const SPRINT = 12;
+/** The longest a lunge takes, in seconds: a runner far back dashes rather than jogging for ages. */
+const LONGEST_LUNGE = 0.6;
 /**
  * Runners stepping into gaps each frame: at least a few, and an eighth of the gaps there are,
  * so even a crowd with a thousand holes after a big fight closes up in under half a second,
@@ -166,7 +168,7 @@ export class Crowd {
 		}
 		if (chosen < 0) return undefined;
 		// A sprint, so a runner two steps away arrives at once and one across the crowd visibly runs.
-		const at = now + Math.max(0.1, Math.sqrt(nearest) / SPRINT);
+		const at = now + Math.min(LONGEST_LUNGE, Math.max(0.1, Math.sqrt(nearest) / SPRINT));
 		this.down(chosen, at);
 		this.lungeStart[chosen] = now;
 		this.lungeX[chosen] = x;
