@@ -53,13 +53,39 @@ reopened — and skip it otherwise.
 
 ## This repository
 
-<!--
-  Repository-specific instructions go here and are owned by this repository. Nothing syncs
-  this file back to the handbook, so edit freely. Good things to put here:
-    - what this project is, and its stack
-    - build, test and lint commands, and which of them to run before calling a change done
-    - known gotchas specific to this codebase
-  Anything that would apply to every repository belongs in the handbook instead.
--->
+Gerombolan, Itrium's free game: the crowd runner from the advertisements, endless and roguelike.
+A Tauri 2 application with SvelteKit (static, no server rendering) for the interface and Three.js
+for the game, which runs entirely in the webview. Rust only opens the window for now.
 
-_To be filled in._
+- **The simulation is deterministic, and that's load-bearing.** `src/lib/game/simulation.ts`
+  decides everything that counts (position, gates, raids, the crowd's size) with integer math, a
+  seeded random number generator and a fixed 60-step-a-second timestep, so a seed plus the inputs
+  replays a run exactly, in the webview and on the leaderboard's server alike. Never use
+  `Math.random`, trigonometry, `Math.exp`/`pow` or floating-point accumulation there; a test
+  enforces the allowed `Math` functions. `tests/simulation.test.mjs` pins known runs to hashes
+  measured in both JavaScriptCore and V8: a change that moves them changes every recorded run, so
+  update them deliberately and say so in the pull request.
+- **Everything else is decoration.** `src/lib/game/game.ts` and `models.ts` draw what the
+  simulation says and may use any math or randomness; they never feed back into it.
+- **Moving instanced meshes need `frustumCulled = false`** (or a recomputed bounding sphere):
+  Three.js computes an instanced mesh's bounds once and would hide a crowd that ran past its
+  starting point.
+- **Models are built in code** from primitives in `models.ts`, in Rhodonite pink for the player's
+  crowd and graphite for raiders. No downloaded or generated models.
+- **Copy spells words out** (`.handbook/conventions/reference/brand.md`): "advertisements", not
+  "ads"; "application", not "app".
+
+### Commands
+
+| What | Command |
+| --- | --- |
+| Install | `pnpm install` |
+| Run in development | `pnpm tauri dev` |
+| Type-check | `pnpm check` |
+| Test the simulation | `pnpm test` |
+| Build the frontend | `pnpm build` |
+| Test the Rust side | `cd src-tauri && cargo test` |
+
+Before calling a change done, run `pnpm check`, `pnpm test` and `pnpm build`, then play it:
+`pnpm tauri dev`. Headless Chrome barely fires `requestAnimationFrame` on macOS (no display
+link), so screenshots from it don't show the game moving.
