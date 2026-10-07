@@ -32,6 +32,8 @@ const FIGHT_SECONDS = 2.5;
 const FIGHT_PACE = { slowest: 8, fastest: 30 } as const;
 /** How far ahead of the leader a fight's sweep may run, in seconds at its pace: about a lunge. */
 const LUNGE_LEAD_SECONDS = 0.5;
+/** A count label's size on screen, in pixels, give or take: one never sits on top of another. */
+const LABEL_SIZE = { width: 110, height: 38 } as const;
 /**
  * How far short of a raider in their way the leader stops, in meters: out of reach of the raiders'
  * raised arms, so the leader never looks to be standing among them.
@@ -360,8 +362,15 @@ export class Game {
 
 		const crowd = this.pin(leaderX, 2.4 * LEADER_SIZE + 0.5, leaderZ, Math.round(this.shownCount))!;
 		let raid: Label | undefined;
-		if (this.raidShown >= 0 && this.raidLeft > 0) raid = this.pin(0, 2.6, this.raiders.front, this.raidLeft, true);
-		this.onFrame({ meters: Math.floor(meters), crowd, raid });
+		// Over the raid's front line as it is now, so the count moves back with the fight.
+		const raidFront = this.raiders.frontLine(time) ?? this.raiders.front;
+		if (this.raidShown >= 0 && this.raidLeft > 0) raid = this.pin(0, 2.6, raidFront, this.raidLeft, true);
+		// Two counts never overlap: the raid's moves up, above the crowd's.
+		if (raid && Math.abs(raid.x - crowd.x) < LABEL_SIZE.width && Math.abs(raid.y - crowd.y) < LABEL_SIZE.height) {
+			raid = { ...raid, y: crowd.y - LABEL_SIZE.height };
+		}
+		// The distance never reads past where the run ended, though a losing crowd presses on into the raid.
+		this.onFrame({ meters: Math.floor(Math.min(meters, state.distance / 1000)), crowd, raid });
 	}
 
 	/**
