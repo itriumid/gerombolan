@@ -54,8 +54,10 @@ export class Raiders {
 	positionOf(index: number) {
 		const column = index % COLUMNS;
 		const rank = Math.floor(index / COLUMNS);
+		// A rank that isn't full, the last one, stands in the middle of the road, not along one side.
+		const across = Math.min(COLUMNS, this.count - rank * COLUMNS);
 		return {
-			x: (column - (COLUMNS - 1) / 2) * COLUMN_GAP + this.jitter[index * 2],
+			x: (column - (across - 1) / 2) * COLUMN_GAP + this.jitter[index * 2],
 			z: this.frontZ - rank * RANK_GAP + this.jitter[index * 2 + 1]
 		};
 	}
