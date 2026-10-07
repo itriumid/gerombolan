@@ -1,0 +1,4 @@
+overrides:
+  # SvelteKit still asks for cookie ^0.6.0, which has GHSA-pxg6-pf52-xh8x.
+  # Only the build uses it (Gerombolan has no server), and 0.7 keeps the same API.
+  cookie: ^0.7.2
