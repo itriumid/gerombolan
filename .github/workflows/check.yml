@@ -1,0 +1,89 @@
+name: Check
+
+# Every pull request and every push to main: type-check, test the simulation, build the frontend,
+# and compile and test the Rust side (`Test`, a required check), and check that V8 and
+# JavaScriptCore play the simulation identically (`Engines`). Builds for every operating system
+# come with the release workflow.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# A newer push to the same pull request makes the older run pointless.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Any `permissions:` block replaces the default token scopes, so grant per job.
+permissions: {}
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install Linux system libraries
+        # WebKitGTK and friends, which Tauri builds against.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev \
+            libssl-dev libayatana-appindicator3-dev librsvg2-dev
+
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          version: 12
+          cache: true
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          # Matches development: the tests import TypeScript directly, which Node runs by stripping types.
+          node-version: 26
+
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+        with:
+          toolchain: stable
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: src-tauri
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Type-check the frontend
+        run: pnpm check
+
+      # The simulation gives the same run for the same seed and inputs; see tests/.
+      - name: Test the simulation
+        run: pnpm test
+
+      # The Rust crate embeds the built frontend at compile time, so it has to exist first.
+      - name: Build the frontend
+        run: pnpm build
+
+      - name: Test the Rust side
+        working-directory: src-tauri
+        run: cargo test --locked
+
+  engines:
+    name: Engines
+    # The jsc shell that ships with macOS runs the simulation the way the game does on a Mac.
+    runs-on: macos-15
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 26
+
+      # A leaderboard replays runs on a server, so a run has to come out the same in every engine.
+      - name: Compare V8 and JavaScriptCore
+        run: node scripts/check-engines.ts
